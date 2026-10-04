@@ -1,0 +1,53 @@
+\begin{table}[t]
+\centering
+\caption{Summary of pairwise PhyPO win rates over 6 VLM judges and 10 physics categories (60 bars per video model).
+The mean is the unweighted average of the 60 category-level rates shown in the figure.
+The bar-wise PhyPO win-over rate is the share of those 60 bars whose win rate is strictly above 50\%.}
+\label{tab:phypo-vlm-summary}
+\begin{tabular}{lcc}
+\toprule
+Video model &
+Mean PhyPO rate (\%) &
+Bar-wise PhyPO Win-Over Rate (\%) \\
+\midrule
+NVIDIA Cosmos-Predict2.5-2B & 70.38 & 93.33 \\
+NVIDIA Cosmos-Predict2.5-14B & 50.74 & 50.00 \\
+LTX-Video 2B & 62.14 & 80.00 \\
+LTX-Video 13B & 48.42 & 46.67 \\
+Wan2.1-T2V-1.3B & 55.04 & 70.00 \\
+Wan2.1-T2V-14B & 48.61 & 46.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Per-judge overall PhyPO win rate (\%) on basic\_physics A/B (all categories pooled).}
+\label{tab:phypo-vlm-per-judge}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}
+\toprule
+Video model &
+GPT-5.6 &
+Qwen2.5 &
+Qwen3 &
+InternVL &
+InternVL &
+Molmo \\
+ &
+luna &
+VL-72B &
+VL-32B &
+30B-A3B &
+8B &
+72B-0924 \\
+\midrule
+Cosmos-Predict2.5-2B & 79.51 & 73.02 & 76.06 & 65.72 & 72.01 & 55.17 \\
+Cosmos-Predict2.5-14B & 50.90 & 48.90 & 47.09 & 48.30 & 56.31 & 52.91 \\
+LTX-Video 2B & 55.35 & 70.91 & 64.04 & 63.43 & 63.84 & 55.35 \\
+LTX-Video 13B & 48.08 & 49.70 & 45.86 & 47.62 & 50.10 & 49.09 \\
+Wan2.1-T2V-1.3B & 51.90 & 57.11 & 54.91 & 55.11 & 61.92 & 49.30 \\
+Wan2.1-T2V-14B & 50.50 & 45.89 & 45.89 & 47.59 & 49.90 & 52.10 \\
+\bottomrule
+\end{tabular}
+\end{table}

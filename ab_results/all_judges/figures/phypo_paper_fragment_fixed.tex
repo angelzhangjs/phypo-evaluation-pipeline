@@ -1,0 +1,1005 @@
+\documentclass{article}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath,amssymb}
+\algnewcommand{\LineComment}[1]{\State \(\triangleright\) \textit{#1}}
+\begin{document}
+
+
+% ============================================================
+% Latent-space GRPO training algorithm
+% ============================================================
+\begin{algorithm}[t]
+\caption{PhyPO-T2V with Best-of-\(K\) Trajectory Selection}
+\label{alg:phypo-t2v}
+\footnotesize
+\setlength{\algorithmicindent}{1em}
+\begin{algorithmic}[1]
+
+\Require Prompt \(p\), T2V model \(f_\theta\), decoder \(\mathcal D\),
+reward \(R\), steps \(T\), training window
+\(\mathcal T_{\mathrm{train}}\), rollouts \(K\), rollout noise
+\(\sigma_{\mathrm{roll}}\), policy variance \(\sigma^2\), clip
+\(\epsilon\), constant \(\epsilon_A\), learning rate \(\eta\)
+\Ensure Updated parameters \(\theta\)
+
+\State \(z_T\sim\mathcal N(0,I)\), \quad
+\(\theta_{\mathrm{old}}\gets\theta\)
+\State \(\mu_\phi(z,t,p)\gets
+\operatorname{SolverStep}\bigl(z,f_\phi(z,t,p),t\bigr)\)
+
+\For{\(t=T,T-1,\ldots,1\)}
+    \If{\(t\notin\mathcal T_{\mathrm{train}}\)}
+        \State \(z_{t-1}\gets
+        \mu_{\theta_{\mathrm{old}}}(z_t,t,p)\);
+        \textbf{continue}
+    \EndIf
+
+    \For{\(k=1,\ldots,K\)}
+        \State \(\varepsilon^{(k)}\sim\mathcal N(0,I)\), \quad
+        \(z_t^{(k)}
+        \gets z_t+\sigma_{\mathrm{roll}}\varepsilon^{(k)}\)
+
+        \State \(a_{\mathrm{old}}^{(k,t)}
+        \gets f_{\theta_{\mathrm{old}}}(z_t^{(k)},t,p)\)
+
+        \State \(\hat{x}_0^{(k,t)}
+        \gets\operatorname{EstimateX0}
+        (z_t^{(k)},a_{\mathrm{old}}^{(k,t)},t)\)
+
+        \State \(\hat v_0^{(k,t)}
+        \gets\mathcal D(\hat x_0^{(k,t)})\), \quad
+        \(R_t^{(k)}\gets R(\hat v_0^{(k,t)},p)\)
+
+        \State \(z_{t-1}^{(k)}
+        \sim\pi_{\theta_{\mathrm{old}}}
+        (\cdot\mid z_t^{(k)},p,t)
+        =
+        \mathcal N\!\left(
+        \mu_{\theta_{\mathrm{old}}}(z_t^{(k)},t,p),
+        \sigma^2I
+        \right)\)
+    \EndFor
+
+    \State \(k_t^\star\gets\arg\max_k R_t^{(k)}\), \quad
+    \(z_{t-1}\gets z_{t-1}^{(k_t^\star)}\)
+    \Comment{advance with best rollout}
+
+    \State \(\mu_{R,t}\gets K^{-1}\sum_{j=1}^K R_t^{(j)}\), \quad
+    \(\sigma_{R,t}\gets
+    \sqrt{K^{-1}\sum_{j=1}^K
+    (R_t^{(j)}-\mu_{R,t})^2}\)
+
+    \For{\(k=1,\ldots,K\)}
+        \State \(A_t^{(k)}
+        \gets\operatorname{sg}\!\left[
+        \frac{R_t^{(k)}-\mu_{R,t}}
+        {\sigma_{R,t}+\epsilon_A}
+        \right]\)
+
+        \State \(\ell_\theta^{(k,t)}
+        \gets\log\pi_\theta
+        (z_{t-1}^{(k)}\mid z_t^{(k)},p,t)\)
+
+        \State \(\ell_{\mathrm{old}}^{(k,t)}
+        \gets\log\pi_{\theta_{\mathrm{old}}}
+        (z_{t-1}^{(k)}\mid z_t^{(k)},p,t)\)
+
+        \State \(\rho_{k,t}(\theta)
+        \gets\exp\!\left(
+        \ell_\theta^{(k,t)}
+        -\ell_{\mathrm{old}}^{(k,t)}
+        \right)\)
+    \EndFor
+\EndFor
+
+\State \(\displaystyle
+\mathcal L_{\mathrm{GRPO}}\gets
+-\frac{1}{K|\mathcal T_{\mathrm{train}}|}
+\sum_{t\in\mathcal T_{\mathrm{train}}}
+\sum_{k=1}^K
+\min\!\left(
+\rho_{k,t}(\theta)A_t^{(k)},
+\operatorname{clip}
+(\rho_{k,t}(\theta),1-\epsilon,1+\epsilon)
+A_t^{(k)}
+\right)\)
+
+\State \(\theta\gets
+\theta-\eta\nabla_\theta\mathcal L_{\mathrm{GRPO}}\)
+
+\end{algorithmic}
+\end{algorithm}
+\FloatBarrier
+\paragraph{Intermediate $x_0$ reward prediction.}
+At each intermediate denoising timestep $t$, we use the model's
+$x_0$-prediction $\hat{x}_0^{(k,t)}$ as an estimate of the terminal clean
+video latent. We decode $\hat{x}_0^{(k,t)}$ into the complete predicted
+temporal video $\hat{v}_0^{(k,t)} = D(\hat{x}_0^{(k,t)})$ and compute the
+reward as $R_t^{(k)} = R(\hat{v}_0^{(k,t)}, p)$. Thus, the reward evaluates
+the predicted terminal video trajectory rather than the local latent
+transition $z_t^{(k)} \rightarrow z_{t-1}^{(k)}$ alone.
+
+\paragraph{Connection to the GRPO objective.}
+Algorithm~\ref{alg:phypo-t2v} instantiates Eq.~(1) in the latent
+denoising space, where the rollout index $i$ corresponds to $k$ and the optimization
+step $j$ corresponds to the denoising time step $t$. We define the policy action
+as the next latent $z_{t-1}^{(k)}$ and the policy state as
+$s_t^{(k)}=(z_t^{(k)},p,t,s_t^{\mathrm{solver}})$. Consequently, the
+importance ratio in Eq.~(1) becomes
+\[
+\rho_{k,t}(\theta)
+=
+\frac{
+\pi_\theta(z_{t-1}^{(k)} \mid z_t^{(k)},p,t)
+}{
+\pi_{\theta_{\mathrm{old}}}
+(z_{t-1}^{(k)} \mid z_t^{(k)},p,t)
+}.
+\]
+We model the latent transition policy as
+$\pi_\theta(z_{t-1}\mid z_t,p,t)
+=\mathcal{N}(z_{t-1};\mu_\theta(z_t,p,t),\sigma_t^2 I)$,
+where $\mu_\theta$ is the next-latent prediction produced by the adapter.
+Thus,
+\[
+\log \pi_\theta(z_{t-1}^{(k)} \mid z_t^{(k)},p,t)
+=
+-\frac{
+\|z_{t-1}^{(k)}-\mu_\theta(z_t^{(k)},p,t)\|_2^2
+}{
+2\sigma_t^2
+}
++C_t.
+\]
+
+The reward is not evaluated on the local transition
+$z_t^{(k)}\rightarrow z_{t-1}^{(k)}$ alone. At each intermediate
+denoising timestep $t$, the model predicts a terminal clean-video latent
+$\hat{x}_0^{(k,t)}$, which is decoded into the complete predicted temporal
+video $\hat{v}_0^{(k,t)}=D(\hat{x}_0^{(k,t)})$. We compute
+$R_t^{(k)}=R(\hat{v}_0^{(k,t)},p)$ and normalize the $K$ rewards obtained
+at the same timestep to produce the group-relative advantage
+$A_t^{(k)}$. Consequently, Eq.~(1) is instantiated using
+$\rho_{k,t}(\theta)$ and $A_t^{(k)}$: policy optimization is local to the
+intermediate denoising state, whereas reward supervision evaluates the
+predicted terminal video trajectory.
+
+\paragraph{Latent-Space GRPO.}
+We instantiate GRPO over the latent denoising process by treating each
+intermediate denoising state as
+$s_t^{(k)}=(z_t^{(k)},p,t,s_t^{\mathrm{solver}})$ and the corresponding
+policy action as the next latent $a_t^{(k)}=z_{t-1}^{(k)}$.
+Accordingly, the generic GRPO importance ratio in Eq.~(1) becomes
+\begin{equation}
+\rho_{k,t}(\theta)
+=
+\frac{
+\pi_\theta
+\left(
+z_{t-1}^{(k)}
+\mid
+z_t^{(k)},p,t
+\right)
+}{
+\pi_{\theta_{\mathrm{old}}}
+\left(
+z_{t-1}^{(k)}
+\mid
+z_t^{(k)},p,t
+\right)
+}.
+\end{equation}
+We model the latent transition policy as a Gaussian,
+\begin{equation}
+\pi_\theta(z_{t-1}\mid z_t,p,t)
+=
+\mathcal{N}
+\left(
+z_{t-1};
+\mu_\theta(z_t,p,t),
+\sigma_t^2 I
+\right),
+\end{equation}
+where $\mu_\theta(z_t,p,t)$ denotes the next-latent prediction of the
+video generation model. The corresponding policy log-likelihood is
+\begin{equation}
+\log \pi_\theta
+\left(
+z_{t-1}^{(k)}
+\mid
+z_t^{(k)},p,t
+\right)
+=
+-\frac{
+\left\|
+z_{t-1}^{(k)}
+-
+\mu_\theta(z_t^{(k)},p,t)
+\right\|_2^2
+}{
+2\sigma_t^2
+}
++C_t.
+\end{equation}
+
+\paragraph{Intermediate $x_0$ Reward Prediction.}
+Rather than evaluating the local latent transition
+$z_t^{(k)}\rightarrow z_{t-1}^{(k)}$ directly, we use the model's
+$x_0$-prediction at each intermediate denoising timestep as an estimate
+of the terminal clean video latent,
+\begin{equation}
+\hat{x}_0^{(k,t)}
+=
+f_{\theta_{\mathrm{old}}}
+\left(
+z_t^{(k)},t,p
+\right).
+\end{equation}
+We decode this prediction into the complete predicted temporal video
+trajectory,
+\begin{equation}
+\hat{v}_0^{(k,t)}
+=
+D\left(\hat{x}_0^{(k,t)}\right),
+\end{equation}
+and compute
+\begin{equation}
+R_t^{(k)}
+=
+R\left(\hat{v}_0^{(k,t)},p\right).
+\end{equation}
+Thus, reward supervision evaluates the predicted terminal video
+trajectory, while policy optimization remains local to the intermediate
+denoising state.
+
+For the $K$ rollouts evaluated at timestep $t$, we compute the
+group-relative advantage as
+\begin{equation}
+A_t^{(k)}
+=
+\frac{
+R_t^{(k)}-\mu_{R,t}
+}{
+\sigma_{R,t}+\epsilon_A
+},
+\end{equation}
+where
+\begin{equation}
+\mu_{R,t}
+=
+\frac{1}{K}\sum_{k=1}^{K}R_t^{(k)},
+\qquad
+\sigma_{R,t}
+=
+\sqrt{
+\frac{1}{K}
+\sum_{k=1}^{K}
+\left(R_t^{(k)}-\mu_{R,t}\right)^2
+}.
+\end{equation}
+The resulting $A_t^{(k)}$ and $\rho_{k,t}(\theta)$ are substituted
+directly into the clipped GRPO objective in Eq.~(1). Overall, the
+optimization follows
+\begin{equation}
+z_t^{(k)}
+\rightarrow
+\hat{x}_0^{(k,t)}
+\rightarrow
+D(\hat{x}_0^{(k,t)})
+\rightarrow
+R_t^{(k)}
+\rightarrow
+A_t^{(k)}
+\rightarrow
+\rho_{k,t}(\theta)
+\rightarrow
+\mathcal{L}_{\mathrm{GRPO}},
+\end{equation}
+providing full-video physics feedback at intermediate denoising
+timesteps without requiring a complete denoising rollout from each
+intermediate state.
+
+
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model}
+& \textbf{Option} $\uparrow$
+& \textbf{Formula} $\uparrow$
+& \textbf{Substitution} $\uparrow$
+& \textbf{F-T} $\uparrow$ \\
+\midrule
+Wan2.1-1.3B       & -- & -- & -- & -- \\
+\textbf{+ PhyPO}  & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} \\
+\midrule
+LTX-Video-2B      & -- & -- & -- & -- \\
+\textbf{+ PhyPO}  & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} \\
+\midrule
+Cosmos-2B         & -- & -- & -- & -- \\
+\textbf{+ PhyPO}  & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{Physics formulation results on the adapted
+Apple-PI F-T benchmark.} Initial physical quantities originally
+provided through image annotations are instead included directly
+in the text prompt for T2V evaluation.}
+\label{tab:apple-pi-ft}
+\end{table}
+
+% ============================================================
+% Human evaluation: physical reasoning
+% ============================================================
+
+% Table 1
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.7}
+\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccc}
+\toprule
+\textbf{Video Backbone} &
+\textbf{Falling} & \textbf{Projectile} & \textbf{Swinging} & \textbf{Spinning} &
+\textbf{Compressing} & \textbf{Sliding} & \textbf{Bouncing} & \textbf{Flowing} &
+\textbf{Floating} & \textbf{Splashing} \\
+\midrule
+LTX-Video-2B &
+& & & & & & & & & \\
+LTX-Video-13B &
+& & & & & & & & & \\
+Cosmos-Predict2.5-2B &
+& & & & & & & & & \\
+Cosmos-Predict2.5-14B &
+& & & & & & & & & \\
+Wan2.1-1.3B &
+& & & & & & & & & \\
+Wan2.1-14B &
+& & & & & & & & & \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Human evaluation preference win rate (\%) of physical reasoning across video generation models.}
+\label{tab:human-physics-eval}
+\end{table}
+\FloatBarrier
+
+
+% ============================================================
+% Cross-VLM evaluation
+% ============================================================
+
+% Table 2
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.5}
+\setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llcccccccccc}
+\toprule
+\textbf{Video Backbone} & \textbf{Evaluator} &
+\textbf{Falling} & \textbf{Projectile} & \textbf{Swinging} & \textbf{Spinning} &
+\textbf{Compressing} & \textbf{Sliding} & \textbf{Bouncing} & \textbf{Flowing} &
+\textbf{Floating} & \textbf{Splashing} \\
+\midrule
+
+\multirow{2}{*}{LTX-Video-2B}
+& Qwen2-VL-72B-Instruct
+& \textbf{\textcolor{blue}{59.1}}
+& \textbf{\textcolor{blue}{63.1}}
+& \textbf{\textcolor{blue}{65.1}}
+& \textbf{\textcolor{blue}{66.3}}
+& \textbf{\textcolor{blue}{52.0}}
+& \textbf{\textcolor{blue}{54.7}}
+& \textbf{\textcolor{blue}{67.6}}
+& \textbf{\textcolor{blue}{69.5}}
+& \textbf{\textcolor{blue}{72.9}}
+& \textbf{\textcolor{blue}{70.2}} \\
+& Gemini-3.1-Flash-Lite
+& \textbf{\textcolor{red}{46.0}}
+& \textbf{\textcolor{blue}{55.4}}
+& \textbf{\textcolor{blue}{58.0}}
+& \textbf{\textcolor{blue}{62.0}}
+& \textbf{\textcolor{red}{47.1}}
+& \textbf{\textcolor{red}{49.7}}
+& \textbf{\textcolor{blue}{52.8}}
+& \textbf{\textcolor{blue}{58.5}}
+& \textbf{\textcolor{blue}{61.1}}
+& \textbf{\textcolor{blue}{54.3}} \\
+\midrule
+
+\multirow{2}{*}{LTX-Video-13B}
+& Qwen2-VL-72B-Instruct
+& \textbf{\textcolor{blue}{70.0}}
+& \textbf{\textcolor{blue}{71.4}}
+& \textbf{\textcolor{blue}{70.3}}
+& \textbf{\textcolor{blue}{77.4}}
+& \textbf{\textcolor{blue}{80.9}}
+& \textbf{\textcolor{blue}{64.9}}
+& \textbf{\textcolor{blue}{76.4}}
+& \textbf{\textcolor{blue}{86.3}}
+& \textbf{\textcolor{blue}{73.7}}
+& \textbf{\textcolor{blue}{82.0}} \\
+& Gemini-3.1-Flash-Lite
+& \textbf{\textcolor{blue}{51.4}}
+& \textbf{\textcolor{red}{48.0}}
+& \textbf{\textcolor{red}{44.6}}
+& \textbf{\textcolor{red}{44.0}}
+& \textbf{\textcolor{blue}{63.4}}
+& \textbf{\textcolor{red}{44.0}}
+& \textbf{\textcolor{red}{43.7}}
+& \textbf{\textcolor{red}{43.1}}
+& \textbf{\textcolor{red}{46.6}}
+& \textbf{\textcolor{blue}{52.2}} \\
+\midrule
+
+\multirow{2}{*}{Cosmos-Predict2.5-2B}
+& Qwen2-VL-72B-Instruct
+& \textbf{\textcolor{blue}{67.4}}
+& \textbf{\textcolor{blue}{77.4}}
+& \textbf{\textcolor{blue}{70.6}}
+& \textbf{\textcolor{blue}{67.1}}
+& \textbf{\textcolor{blue}{64.6}}
+& \textbf{\textcolor{blue}{56.0}}
+& \textbf{\textcolor{blue}{64.1}}
+& \textbf{\textcolor{blue}{59.9}}
+& \textbf{\textcolor{blue}{51.4}}
+& \textbf{\textcolor{blue}{71.4}} \\
+& Gemini-3.1-Flash-Lite
+& \textbf{\textcolor{blue}{60.9}}
+& \textbf{\textcolor{blue}{72.0}}
+& \textbf{\textcolor{blue}{64.3}}
+& \textbf{\textcolor{blue}{62.9}}
+& \textbf{\textcolor{blue}{58.9}}
+& \textbf{\textcolor{blue}{58.6}}
+& \textbf{\textcolor{blue}{67.1}}
+& \textbf{\textcolor{blue}{61.1}}
+& \textbf{\textcolor{blue}{56.0}}
+& \textbf{\textcolor{blue}{64.9}} \\
+\midrule
+
+\multirow{2}{*}{Cosmos-Predict2.5-14B}
+& Qwen2-VL-72B-Instruct
+& & & & & & & & & & \\
+& Gemini-3.1-Flash-Lite
+& & & & & & & & & & \\
+\midrule
+
+\multirow{2}{*}{Wan2.1-1.3B}
+& Qwen2-VL-72B-Instruct
+& \textbf{\textcolor{blue}{56.3}}
+& \textbf{\textcolor{blue}{50.3}}
+& \textbf{\textcolor{blue}{54.0}}
+& \textbf{\textcolor{red}{46.6}}
+& \textbf{\textcolor{blue}{63.7}}
+& \textbf{\textcolor{red}{41.4}}
+& \textbf{\textcolor{red}{48.1}}
+& \textbf{\textcolor{red}{47.1}}
+& \textbf{\textcolor{blue}{51.7}}
+& \textbf{\textcolor{blue}{50.3}} \\
+& Gemini-3.1-Flash-Lite
+& \textbf{\textcolor{blue}{53.1}}
+& \textbf{\textcolor{blue}{55.7}}
+& \textbf{\textcolor{red}{45.1}}
+& \textbf{\textcolor{red}{48.9}}
+& \textbf{\textcolor{blue}{55.7}}
+& \textbf{\textcolor{red}{40.6}}
+& \textbf{\textcolor{red}{48.4}}
+& \textbf{\textcolor{red}{45.7}}
+& \textbf{\textcolor{red}{46.9}}
+& \textbf{\textcolor{red}{47.7}} \\
+\midrule
+
+\multirow{2}{*}{Wan2.1-14B}
+& Qwen2-VL-72B-Instruct
+& & & & & & & & & & \\
+& Gemini-3.1-Flash-Lite
+& & & & & & & & & & \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Cross-VLM preference win rate (\%) of physics-awareness post-trained models over baselines across six video generation backbones. Values above 50\% are shown in bold blue; values at or below 50\% are shown in bold red.}
+\label{tab:human_vlm_physics_eval}
+\end{table}
+\FloatBarrier
+
+
+% ============================================================
+% PAI-Bench: Physics category
+% ============================================================
+
+% Table 3
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lc}
+\toprule
+\textbf{Model} & \textbf{Physics} $\uparrow$ \\
+\midrule
+Wan2.1-T2V-1.3B
+& 84.8 \\
++ PhyPO
+& \textbf{\textcolor{blue}{85.1}} \\
+\midrule
+LTX-Video-2B
+& 84.8 \\
++ PhyPO
+& \textbf{\textcolor{blue}{87.7}} \\
+\midrule
+Cosmos-predict2.5-2B
+& 91.7 \\
++ PhyPO
+& -- \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{PAI-Bench Physics-category results.}
+Higher is better. We report the Physics (PH) category because PhyPO specifically targets physical consistency.}
+\label{tab:pai_bench_physics}
+\end{table}
+\FloatBarrier
+
+
+% ============================================================
+% VBench (Table 4: forced immediately after Table 3, before Table 5)
+% ============================================================
+
+% Table 4
+\begin{table}[H]
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Model} & SC & BC & MS & AQ & IQ & OC \\
+\midrule
+LTX-Video-2B
+& 93.9 & 95.5 & 99.4 & 46.1 & 55.4 & 17.2 \\
+{+ PhyPO}
+& \textbf{\textcolor{blue}{98.6}}
+& \textbf{\textcolor{blue}{98.7}}
+& \textbf{\textcolor{blue}{99.6}}
+& \textbf{\textcolor{blue}{52.4}}
+& \textbf{\textcolor{blue}{70.2}}
+& \textbf{\textcolor{blue}{21.8}} \\
+\midrule
+LTX-Video-13B
+& \textbf{\textcolor{blue}{99.6}}
+& 99.0
+& \textbf{\textcolor{blue}{99.7}}
+& \textbf{\textcolor{blue}{53.2}}
+& 70.3
+& 18.9 \\
+{+ PhyPO}
+& 99.2
+& 99.0
+& 99.6
+& 52.9
+& \textbf{\textcolor{blue}{73.7}}
+& \textbf{\textcolor{blue}{23.1}} \\
+\midrule
+Cosmos-Predict2.5-2B
+& 96.7 & 96.5 & 99.3 & 50.1 & \textbf{\textcolor{blue}{74.5}} & 22.6 \\
+{+ PhyPO}
+& \textbf{\textcolor{blue}{97.0}}
+& \textbf{\textcolor{blue}{97.1}}
+& 99.1
+& \textbf{\textcolor{blue}{53.0}}
+& 74.0
+& \textbf{\textcolor{blue}{27.2}} \\
+\midrule
+Cosmos-Predict2.5-14B
+& -- & -- & -- & -- & -- & -- \\
+{+ PhyPO}
+& -- & -- & -- & -- & -- & -- \\
+\midrule
+Wan2.1-1.3B
+& 94.8
+& 95.9
+& 98.8
+& 51.1
+& 68.0
+& 24.5 \\
+{+ PhyPO}
+& \textbf{\textcolor{blue}{95.0}}
+& \textbf{\textcolor{blue}{96.6}}
+& 98.8
+& \textbf{\textcolor{blue}{55.2}}
+& \textbf{\textcolor{blue}{70.8}}
+& \textbf{\textcolor{blue}{25.8}} \\
+\midrule
+Wan2.1-14B
+& -- & -- & -- & -- & -- & -- \\
+{+ PhyPO}
+& -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{VBench results.}
+SC: Subject Consistency; BC: Background Consistency; MS: Motion Smoothness;
+AQ: Aesthetic Quality; IQ: Imaging Quality; OC: Overall Consistency.}
+\label{tab:suppl_exp_vbench_quality}
+\end{table}
+\FloatBarrier
+% Forced order: Table 3 (PAI) -> Table 4 (VBench) -> Table 5 (LIBERO)
+
+
+% ============================================================
+% Table 5: LIBERO suite
+% Table 6: Spatial per-task
+% then paragraph
+% then Table 7: RoboTwin
+% ============================================================
+
+% --- Table 5 ---
+\begin{table}[H]
+\centering
+\caption{LIBERO success rates (16k steps) (\%).}
+\label{tab:libero-phypo-success}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Task & Wan2.1-1.3B & Wan2.1-1.3B + PhyPO & $\Delta$ &
+Wan2.1-14B & Wan2.1-14B + PhyPO & $\Delta$ \\
+\midrule
+Spatial
+& 91.00 & 83.60 & \textcolor{red}{$-7.40$}
+& -- & -- & -- \\
+
+Object
+& 94.80 & 98.00 & \textcolor{blue}{$+3.20$}
+& -- & -- & -- \\
+
+Goal
+& 64.60 & 65.00 & \textcolor{blue}{$+0.40$}
+& -- & -- & -- \\
+
+Libero-10
+& 15.20 & 24.60 & \textcolor{blue}{$+9.40$}
+& -- & -- & -- \\
+
+\midrule
+Overall
+& 66.40 & 67.80 & \textcolor{blue}{$+1.40$}
+& -- & -- & -- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+
+
+
+% --- Table 6 ---
+\begin{table}[H]
+\centering
+\small
+\caption{Per-task LIBERO-Spatial success rates (\%). Cabinet/drawer tasks drive the suite drop.}
+\label{tab:libero-spatial-per-task}
+
+\renewcommand{\arraystretch}{1.4}
+\resizebox{0.95\linewidth}{!}{%
+\begin{tabular}{llccc}
+\toprule
+ID & Task (short) & Base & +PhyPO & $\Delta$ \\
+\midrule
+0 & between plate and ramekin & 90 & 98 & $+8$ \\
+1 & next to ramekin & 98 & 96 & $-2$ \\
+2 & table center & 92 & 100 & $+8$ \\
+3 & on cookie box & 100 & 100 & $0$ \\
+4 & in top drawer of cabinet & 76 & 40 & \textcolor{red}{$-36$} \\
+5 & on ramekin & 78 & 78 & $0$ \\
+6 & next to cookie box & 100 & 100 & $0$ \\
+7 & on stove & 92 & 86 & $-6$ \\
+8 & next to plate & 94 & 92 & $-2$ \\
+9 & on wooden cabinet & 90 & 46 & \textcolor{red}{$-44$} \\
+\midrule
+& \textbf{Suite mean} & \textbf{91.0} & \textbf{83.6}
+& \textcolor{red}{\textbf{$-7.4$}} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+
+
+% --- Paragraph (after Tables 5 and 6) ---
+\paragraph{Downstream manipulation transfer.}
+Table~\ref{tab:libero-phypo-success} reports LIBERO success rates for
+Wan2.1-1.3B fine-tuned with and without PhyPO for 16k steps.
+PhyPO improves overall success from $66.40\%$ to $67.80\%$ ($+1.40$).
+Gains are concentrated on Object ($+3.20$; $94.80{\rightarrow}98.00$) and the
+long-horizon Libero-10 suite ($+9.40$; $15.20{\rightarrow}24.60$), with a small
+Goal improvement ($+0.40$).
+In contrast, Spatial decreases from $91.00\%$ to $83.60\%$ ($-7.40$).
+Because Spatial is already near ceiling for the baseline, this regression does
+not overturn the positive overall trend driven by Object and Libero-10.
+
+A per-task breakdown (Table~\ref{tab:libero-spatial-per-task}) shows that the
+Spatial drop is localized rather than suite-wide.
+Eight of ten Spatial tasks remain comparable or improve under PhyPO, especially
+table-top relational pick-and-place (e.g., bowl between/next to objects, bowl
+from table center).
+The suite mean is dominated by two cabinet-related failures: retrieving the
+bowl from the top drawer ($76\%{\rightarrow}40\%$, $-36$) and picking the bowl
+from the wooden cabinet surface ($90\%{\rightarrow}46\%$, $-44$).
+These tasks require precise interaction with elevated or articulated furniture,
+whereas most remaining Spatial tasks are planar table-top placements where
+PhyPO stays strong.
+
+We attribute this pattern to a skill trade-off induced by the physics-oriented
+video prior.
+PhyPO encourages representations that better capture object dynamics and
+multi-step physical interaction, which aligns with gains on Object
+identity/manipulation and long-horizon Libero-10.
+The same bias is less helpful---and can be harmful---for fine-grained spatial
+localization on cabinets and drawers, where success hinges on geometric
+precision and articulated-object affordance more than on physical dynamics.
+Importantly, the Spatial regression is therefore best interpreted as a
+concentrated failure mode on furniture-centric subtasks, not as a general
+collapse of spatial reasoning.
+
+
+
+% --- Table 7 ---
+\begin{table}[H]
+\centering
+\caption{RoboTwin 2.0 success rates (\%). Each task is evaluated over 100 episodes.}
+\label{tab:robotwin-phypo-success}
+
+\renewcommand{\arraystretch}{1.4}
+\resizebox{0.95\linewidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Task Group
+& Wan2.1-1.3B
+& Wan2.1-1.3B + PhyPO
+& $\Delta$
+& Wan2.1-14B
+& Wan2.1-14B + PhyPO
+& $\Delta$ \\
+\midrule
+Basic Manipulation
+& -- & -- & --
+& -- & -- & -- \\
+
+Spatial Reasoning
+& -- & -- & --
+& -- & -- & -- \\
+
+Object Interaction
+& -- & -- & --
+& -- & -- & -- \\
+
+Long-Horizon Tasks
+& -- & -- & --
+& -- & -- & -- \\
+
+\midrule
+\textbf{Overall}
+& \textbf{--} & \textbf{--} & \textbf{--}
+& \textbf{--} & \textbf{--} & \textbf{--} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+
+\begin{algorithm}[t]
+\caption{PhyPO-I2V with Best-of-\(K\) Trajectory Selection}
+\label{alg:phypo-i2v}
+\footnotesize
+\setlength{\algorithmicindent}{1em}
+\begin{algorithmic}[1]
+
+\Require Prompt \(p\), image \(I_{\mathrm{cond}}\), I2V model \(f_\theta\),
+decoder \(\mathcal D\), reward \(R\), steps \(T\), training window
+\(\mathcal T_{\mathrm{train}}\), rollouts \(K\), noise
+\(\sigma_{\mathrm{roll}}\), policy variance \(\sigma^2\), clip
+\(\epsilon\), constant \(\epsilon_A\), learning rate \(\eta\)
+\Ensure Updated parameters \(\theta\)
+
+\State \(c\gets\bigl(p,E_{\mathrm{cond}}(I_{\mathrm{cond}})\bigr)\),
+\(z_T\sim\mathcal N(0,I)\), \(\theta_{\mathrm{old}}\gets\theta\)
+\State \(\mu_\phi(z,t,c)\gets
+\operatorname{SolverStep}\bigl(z,f_\phi(z,t,c),t\bigr)\)
+
+\For{\(t=T,T-1,\ldots,1\)}
+    \If{\(t\notin\mathcal T_{\mathrm{train}}\)}
+        \State \(z_{t-1}\gets\mu_{\theta_{\mathrm{old}}}(z_t,t,c)\);
+        \textbf{continue}
+    \EndIf
+
+    \For{\(k=1,\ldots,K\)}
+        \State \(\varepsilon^{(k)}\sim\mathcal N(0,I)\), \quad
+        \(z_t^{(k)}\gets z_t+\sigma_{\mathrm{roll}}\varepsilon^{(k)}\)
+        \State \(a_{\mathrm{old}}^{(k,t)}
+        \gets f_{\theta_{\mathrm{old}}}(z_t^{(k)},t,c)\)
+        \State \(\hat{x}_0^{(k,t)}
+        \gets\operatorname{EstimateX0}
+        (z_t^{(k)},a_{\mathrm{old}}^{(k,t)},t)\)
+        \State \(\hat v_0^{(k,t)}\gets\mathcal D(\hat x_0^{(k,t)})\), \quad
+        \(R_t^{(k)}\gets R(\hat v_0^{(k,t)},p,I_{\mathrm{cond}})\)
+        \State \(z_{t-1}^{(k)}
+        \sim\pi_{\theta_{\mathrm{old}}}(\cdot\mid z_t^{(k)},c,t)
+        =\mathcal N(\mu_{\theta_{\mathrm{old}}}(z_t^{(k)},t,c),\sigma^2I)\)
+    \EndFor
+
+    \State \(k_t^\star\gets\arg\max_k R_t^{(k)}\), \quad
+    \(z_{t-1}\gets z_{t-1}^{(k_t^\star)}\)
+    \Comment{advance with best rollout}
+
+    \State \(\mu_{R,t}\gets K^{-1}\sum_{j=1}^K R_t^{(j)}\), \quad
+    \(\sigma_{R,t}\gets
+    \sqrt{K^{-1}\sum_{j=1}^K(R_t^{(j)}-\mu_{R,t})^2}\)
+
+    \For{\(k=1,\ldots,K\)}
+        \State \(A_t^{(k)}\gets\operatorname{sg}\!\left[
+        (R_t^{(k)}-\mu_{R,t})/(\sigma_{R,t}+\epsilon_A)\right]\)
+        \State \(\ell_\theta^{(k,t)}
+        \gets\log\pi_\theta(z_{t-1}^{(k)}\mid z_t^{(k)},c,t)\)
+        \State \(\ell_{\mathrm{old}}^{(k,t)}
+        \gets\log\pi_{\theta_{\mathrm{old}}}
+        (z_{t-1}^{(k)}\mid z_t^{(k)},c,t)\)
+        \State \(\rho_{k,t}(\theta)
+        \gets\exp(\ell_\theta^{(k,t)}-\ell_{\mathrm{old}}^{(k,t)})\)
+    \EndFor
+\EndFor
+
+\State \(\displaystyle
+\mathcal L_{\mathrm{GRPO}}\gets
+-\frac{1}{K|\mathcal T_{\mathrm{train}}|}
+\sum_{t\in\mathcal T_{\mathrm{train}}}\sum_{k=1}^K
+\min\!\left(
+\rho_{k,t}(\theta)A_t^{(k)},
+\operatorname{clip}(\rho_{k,t}(\theta),1-\epsilon,1+\epsilon)A_t^{(k)}
+\right)\)
+
+\State \(\theta\gets\theta-\eta\nabla_\theta\mathcal L_{\mathrm{GRPO}}\)
+
+\end{algorithmic}
+\end{algorithm}
+\FloatBarrier
+
+BlockStackingSpecifiedOrderTask evaluates physics-aware interaction because the robot must grasp, lift, orient, and precisely place multiple blocks while accounting for gravity, contact forces, friction, collisions, and object stability. Success requires more than reaching target coordinates: each block must remain balanced in the specified order without slipping, toppling, or being displaced by later placements. The task therefore tests whether the policy can produce controlled motions and adapt to the physical consequences of sequential object manipulation.
+
+
+\begin{table}[t]
+\centering
+\caption{PhyPO win rates (\%)}
+\label{tab:phypo_win_rates}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Judge} &
+\textbf{Overall} &
+\textbf{Cosmos-14B} &
+\textbf{Cosmos-2B} &
+\textbf{Wan-1.3B} &
+\textbf{Wan-14B} \\
+\midrule
+Qwen2.5-VL-72B-Instruct & 60.50 & 52.71 & 74.44 & 65.73 & 49.30 \\
+Qwen3-VL-32B-Instruct & 60.45 & 50.70 & 78.50 & 63.33 & 49.50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[t]
+\centering
+\caption{PhyPO win rate by physics category (\%), with ties counted as PhyPO wins.}
+\label{tab:phypo_category_win_rates}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Physics Category} &
+\textbf{Qwen2.5-VL-72B} &
+\textbf{Qwen3-VL-32B-Instruct} \\
+\midrule
+Falling       & 61.00 & 61.50 \\
+Projectile    & 52.50 & 61.00 \\
+Swinging      & 57.00 & 57.50 \\
+Compression   & 70.41 & 67.86 \\
+Spinning      & 64.50 & 59.50 \\
+Sliding       & 66.50 & 68.50 \\
+Bouncing      & 64.80 & 62.24 \\
+Fluid Flowing & 51.96 & 56.86 \\
+Floating      & 60.00 & 55.00 \\
+Splashing     & 56.70 & 54.64 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\caption{\textbf{PhyPO win rate by Basic-Physics-10 physical categories.}
+Each bar is one VLM judge. The number on each bar is the PhyPO win rate (\%).
+The dashed line marks chance ($50\%$).
+Smaller backbones (2B / 1.3B) are on the left; larger backbones (14B / 13B) are on the right.
+Mean PhyPO rate is the unweighted average of the 60 category$\times$judge bars in that panel.
+Bar-wise PhyPO win-over rate is the share of those 60 bars strictly above $50\%$.}
+\label{fig:phypo-all-models}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Summary of pairwise PhyPO win rates} over 6 VLM judges and 10 physics categories (60 bars per video model).
+The mean is the unweighted average of the category-level rates in Fig.~\ref{fig:phypo-all-models}.
+The bar-wise PhyPO win-over rate is the share of those 60 bars strictly above $50\%$.}
+\label{tab:phypo-vlm-summary}
+\begin{tabular}{lcc}
+\toprule
+Video model & Mean PhyPO rate (\%) & Win-over rate (\%) \\
+\midrule
+NVIDIA Cosmos-Predict2.5-2B  & 70.38 & 93.33 \\
+LTX-Video 2B                 & 62.14 & 80.00 \\
+Wan2.1-T2V-1.3B              & 55.04 & 70.00 \\
+NVIDIA Cosmos-Predict2.5-14B & 50.74 & 50.00 \\
+Wan2.1-T2V-14B               & 48.61 & 46.67 \\
+LTX-Video 13B                & 48.42 & 46.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Per-judge overall PhyPO win rate (\%)} on Basic-Physics pairwise A/B (all categories pooled).
+Forced-choice A/B; position of baseline vs.\ PhyPO is shuffled per pair.}
+\label{tab:phypo-vlm-per-judge}
+\begin{tabular}{lcccccc}
+\toprule
+Video model
+  & GPT-5.6-luna
+  & Qwen2.5-VL-72B
+  & Qwen3-VL-32B
+  & InternVL3.5-30B-A3B
+  & InternVL3.5-8B
+  & Molmo-72B-0924 \\
+\midrule
+Cosmos-Predict2.5-2B  & 79.51 & 73.02 & 76.06 & 65.72 & 72.01 & 55.17 \\
+LTX-Video 2B          & 55.35 & 70.91 & 64.04 & 63.43 & 63.84 & 55.35 \\
+Wan2.1-T2V-1.3B       & 51.90 & 57.11 & 54.91 & 55.11 & 61.92 & 49.30 \\
+Cosmos-Predict2.5-14B & 50.90 & 48.90 & 47.09 & 48.30 & 56.31 & 52.91 \\
+Wan2.1-T2V-14B        & 50.50 & 45.89 & 45.89 & 47.59 & 49.90 & 52.10 \\
+LTX-Video 13B         & 48.08 & 49.70 & 45.86 & 47.62 & 50.10 & 49.09 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\caption{\textbf{LIBERO success rates} for the stock policy versus PhyPO.
+Each suite is evaluated over 200 rollouts. Overall is the micro-average over all 800 episodes.}
+\label{tab:libero-success}
+\begin{tabular}{lcc}
+\toprule
+Suite & Stock & PhyPO \\
+\midrule
+libero\_spatial     & 98.0\% (196/200) & 97.0\% (194/200) \\
+libero\_object      & 98.0\% (196/200) & \textbf{99.0\%} (198/200) \\
+libero\_goal        & 95.0\% (190/200) & \textbf{96.0\%} (192/200) \\
+libero\_10 (long)   & 91.5\% (183/200) & 91.5\% (183/200) \\
+\midrule
+Overall             & 95.62\% (765/800) & \textbf{95.88\%} (767/800) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{document}

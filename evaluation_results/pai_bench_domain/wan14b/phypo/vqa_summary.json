@@ -1,0 +1,19 @@
+{
+    "overall_accuracy": 0.7980712042316042,
+    "total_videos": 1034,
+    "model_name": "/root/autodl-tmp/models/Qwen2.5-VL-72B-Instruct",
+    "category_scores": {
+        "av_score": 0.5963709130375797,
+        "common_sense_score": 0.8526077097505669,
+        "human_score": 0.812963679852703,
+        "industry_score": 0.8052959501557634,
+        "misc_score": 0.8952593804242156,
+        "physics_score": 0.9251863897204743,
+        "robot_score": 0.7292772999669555
+    },
+    "evaluation_params": {
+        "vqa_questions_dir": "/root/autodl-tmp/angelz/datasets/physical-ai-bench-generation/vqa",
+        "video_dir": "/root/autodl-tmp/angelz/videos/pai_bench/wan14b/phypo",
+        "prompt_file": "/root/autodl-tmp/angelz/datasets/physical-ai-bench-generation/cosmos_predict2_bench_full_info.json"
+    }
+}

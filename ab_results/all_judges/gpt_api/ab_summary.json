@@ -1,0 +1,210 @@
+{
+    "model_name": "gpt-5.6-luna",
+    "question_template": "Which video generates a more natural physical {category} behavior while also aligning closely with the text description?",
+    "evaluated_video_ids": 2980,
+    "valid_video_ids": 2980,
+    "baseline_wins": 1311,
+    "phypo_wins": 1669,
+    "ties": 0,
+    "invalid": 0,
+    "phypo_win_rate": 0.5600671140939597,
+    "phypo_decisive_win_rate": 0.5600671140939597,
+    "phypo_tie_adjusted_score": 0.5600671140939597,
+    "category_results": {
+        "bouncing": {
+            "baseline_wins": 121,
+            "phypo_wins": 173,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5884353741496599,
+            "phypo_decisive_win_rate": 0.5884353741496599,
+            "phypo_tie_adjusted_score": 0.5884353741496599
+        },
+        "compression": {
+            "baseline_wins": 132,
+            "phypo_wins": 162,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5510204081632653,
+            "phypo_decisive_win_rate": 0.5510204081632653,
+            "phypo_tie_adjusted_score": 0.5510204081632653
+        },
+        "falling": {
+            "baseline_wins": 139,
+            "phypo_wins": 161,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5366666666666666,
+            "phypo_decisive_win_rate": 0.5366666666666666,
+            "phypo_tie_adjusted_score": 0.5366666666666666
+        },
+        "floating": {
+            "baseline_wins": 134,
+            "phypo_wins": 166,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5533333333333333,
+            "phypo_decisive_win_rate": 0.5533333333333333,
+            "phypo_tie_adjusted_score": 0.5533333333333333
+        },
+        "fluid flowing": {
+            "baseline_wins": 133,
+            "phypo_wins": 173,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.565359477124183,
+            "phypo_decisive_win_rate": 0.565359477124183,
+            "phypo_tie_adjusted_score": 0.565359477124183
+        },
+        "splashing": {
+            "baseline_wins": 111,
+            "phypo_wins": 175,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.6118881118881119,
+            "phypo_decisive_win_rate": 0.6118881118881119,
+            "phypo_tie_adjusted_score": 0.6118881118881119
+        },
+        "projectile": {
+            "baseline_wins": 142,
+            "phypo_wins": 158,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5266666666666666,
+            "phypo_decisive_win_rate": 0.5266666666666666,
+            "phypo_tie_adjusted_score": 0.5266666666666666
+        },
+        "spinning": {
+            "baseline_wins": 114,
+            "phypo_wins": 186,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.62,
+            "phypo_decisive_win_rate": 0.62,
+            "phypo_tie_adjusted_score": 0.62
+        },
+        "sliding": {
+            "baseline_wins": 139,
+            "phypo_wins": 161,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5366666666666666,
+            "phypo_decisive_win_rate": 0.5366666666666666,
+            "phypo_tie_adjusted_score": 0.5366666666666666
+        },
+        "swinging": {
+            "baseline_wins": 146,
+            "phypo_wins": 154,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5133333333333333,
+            "phypo_decisive_win_rate": 0.5133333333333333,
+            "phypo_tie_adjusted_score": 0.5133333333333333
+        }
+    },
+    "model_results": {
+        "cosmos14b": {
+            "evaluated_video_ids": 499,
+            "baseline_wins": 245,
+            "phypo_wins": 254,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5090180360721442,
+            "phypo_decisive_win_rate": 0.5090180360721442,
+            "phypo_tie_adjusted_score": 0.5090180360721442
+        },
+        "cosmos2b": {
+            "evaluated_video_ids": 493,
+            "baseline_wins": 101,
+            "phypo_wins": 392,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.795131845841785,
+            "phypo_decisive_win_rate": 0.795131845841785,
+            "phypo_tie_adjusted_score": 0.795131845841785
+        },
+        "ltx13b": {
+            "evaluated_video_ids": 495,
+            "baseline_wins": 257,
+            "phypo_wins": 238,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.4808080808080808,
+            "phypo_decisive_win_rate": 0.4808080808080808,
+            "phypo_tie_adjusted_score": 0.4808080808080808
+        },
+        "ltx2b": {
+            "evaluated_video_ids": 495,
+            "baseline_wins": 221,
+            "phypo_wins": 274,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5535353535353535,
+            "phypo_decisive_win_rate": 0.5535353535353535,
+            "phypo_tie_adjusted_score": 0.5535353535353535
+        },
+        "wan1.3b": {
+            "evaluated_video_ids": 499,
+            "baseline_wins": 240,
+            "phypo_wins": 259,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5190380761523046,
+            "phypo_decisive_win_rate": 0.5190380761523046,
+            "phypo_tie_adjusted_score": 0.5190380761523046
+        },
+        "wan14b": {
+            "evaluated_video_ids": 499,
+            "baseline_wins": 247,
+            "phypo_wins": 252,
+            "ties": 0,
+            "invalid": 0,
+            "phypo_win_rate": 0.5050100200400801,
+            "phypo_decisive_win_rate": 0.5050100200400801,
+            "phypo_tie_adjusted_score": 0.5050100200400801
+        }
+    },
+    "skipped_model_groups": [],
+    "missing_baseline_ids": [
+        "cosmos2b::SH_091",
+        "cosmos2b::SH_092",
+        "cosmos2b::SH_093",
+        "cosmos2b::SH_094",
+        "cosmos2b::SH_483",
+        "cosmos2b::SH_485",
+        "ltx13b::SH_091",
+        "ltx13b::SH_092",
+        "ltx13b::SH_093",
+        "ltx13b::SH_094",
+        "ltx2b::SH_091",
+        "ltx2b::SH_092",
+        "ltx2b::SH_093",
+        "ltx2b::SH_094"
+    ],
+    "missing_phypo_ids": [
+        "cosmos2b::SH_091",
+        "cosmos2b::SH_092",
+        "cosmos2b::SH_093",
+        "cosmos2b::SH_094",
+        "cosmos2b::SH_483",
+        "cosmos2b::SH_485",
+        "ltx13b::SH_091",
+        "ltx13b::SH_092",
+        "ltx13b::SH_093",
+        "ltx13b::SH_094",
+        "ltx2b::SH_091",
+        "ltx2b::SH_092",
+        "ltx2b::SH_093",
+        "ltx2b::SH_094"
+    ],
+    "evaluation_params": {
+        "backend": "openai",
+        "max_model_len": 8192,
+        "gpu_memory_utilization": 0.65,
+        "videos_root": "/root/autodl-tmp/angelz/videos/basic_physics",
+        "baseline_dir": null,
+        "phypo_dir": null,
+        "prompt_file": "/root/autodl-tmp/angelz/videos/basic_physics/wan14b/phypo/prompts.json",
+        "position_seed": 42
+    }
+}

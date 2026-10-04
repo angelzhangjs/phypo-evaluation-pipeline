@@ -1,0 +1,18 @@
+{
+    "status": "in_progress",
+    "requested_dimensions": [
+        "aesthetic_quality",
+        "background_consistency",
+        "imaging_quality",
+        "motion_smoothness",
+        "overall_consistency",
+        "subject_consistency"
+    ],
+    "completed_dimensions": [
+        "aesthetic_quality",
+        "background_consistency",
+        "imaging_quality"
+    ],
+    "current_dimension": "motion_smoothness",
+    "error": null
+}

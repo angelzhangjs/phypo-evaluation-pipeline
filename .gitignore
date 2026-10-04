@@ -1,0 +1,17 @@
+# API keys and local secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Logs
+*.log
+nohup.out
+
+# Hugging Face download/upload caches
+.cache/

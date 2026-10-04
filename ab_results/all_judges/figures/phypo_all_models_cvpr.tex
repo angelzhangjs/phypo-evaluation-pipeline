@@ -1,0 +1,63 @@
+% CVPR two-column snippet. Requires: \usepackage{booktabs,graphicx}
+% Prefer the PDF companion of this figure for camera-ready.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/phypo_bars_all_models.pdf}
+\caption{\textbf{PhyPO win rate by Basic-Physics-10 physical categories.}
+Each bar is one VLM judge. The number on each bar is the PhyPO win rate (\%).
+The dashed line marks chance ($50\%$).
+Smaller backbones (2B / 1.3B) are on the left; larger backbones (14B / 13B) are on the right.
+Mean PhyPO rate is the unweighted average of the 60 category$\times$judge bars in that panel.
+Bar-wise PhyPO win-over rate is the share of those 60 bars strictly above $50\%$.}
+\label{fig:phypo-all-models}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Summary of pairwise PhyPO win rates} over 6 VLM judges and 10 physics categories (60 bars per video model).
+The mean is the unweighted average of the category-level rates in Fig.~\ref{fig:phypo-all-models}.
+The bar-wise PhyPO win-over rate is the share of those 60 bars strictly above $50\%$.}
+\label{tab:phypo-vlm-summary}
+\begin{tabular}{lcc}
+\toprule
+Video model & Mean PhyPO rate (\%) & Win-over rate (\%) \\
+\midrule
+NVIDIA Cosmos-Predict2.5-2B  & 70.38 & 93.33 \\
+LTX-Video 2B                 & 62.14 & 80.00 \\
+Wan2.1-T2V-1.3B              & 55.04 & 70.00 \\
+NVIDIA Cosmos-Predict2.5-14B & 50.74 & 50.00 \\
+Wan2.1-T2V-14B               & 48.61 & 46.67 \\
+LTX-Video 13B                & 48.42 & 46.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Per-judge overall PhyPO win rate (\%)} on Basic-Physics pairwise A/B (all categories pooled).
+Forced-choice A/B; position of baseline vs.\ PhyPO is shuffled per pair.}
+\label{tab:phypo-vlm-per-judge}
+\begin{tabular}{lcccccc}
+\toprule
+Video model
+  & GPT-5.6-luna
+  & Qwen2.5-VL-72B
+  & Qwen3-VL-32B
+  & InternVL3.5-30B-A3B
+  & InternVL3.5-8B
+  & Molmo-72B-0924 \\
+\midrule
+Cosmos-Predict2.5-2B  & 79.51 & 73.02 & 76.06 & 65.72 & 72.01 & 55.17 \\
+LTX-Video 2B          & 55.35 & 70.91 & 64.04 & 63.43 & 63.84 & 55.35 \\
+Wan2.1-T2V-1.3B       & 51.90 & 57.11 & 54.91 & 55.11 & 61.92 & 49.30 \\
+Cosmos-Predict2.5-14B & 50.90 & 48.90 & 47.09 & 48.30 & 56.31 & 52.91 \\
+Wan2.1-T2V-14B        & 50.50 & 45.89 & 45.89 & 47.59 & 49.90 & 52.10 \\
+LTX-Video 13B         & 48.08 & 49.70 & 45.86 & 47.62 & 50.10 & 49.09 \\
+\bottomrule
+\end{tabular}
+\end{table*}
