@@ -5,15 +5,11 @@
 [![PAI-Bench](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-PAI--Bench--G-orange)](https://huggingface.co/datasets/shi-labs/physical-ai-bench-generation)
 
 Evaluation code for comparing **baseline** text-to-video models against their
-**PhyPO** (GRPO, physics-reward) fine-tuned versions. It has two parts:
-
-1. **VLM judge (pairwise A/B)** — a vision-language model watches the baseline
-   and PhyPO video for the same prompt and picks the one with more natural
-   physics and better prompt alignment. Supported judges: ChatGPT / GPT-5.x and
-   Gemini through their APIs, plus local Qwen2.5-VL, Qwen3-VL, InternVL3.5 and
-   Molmo through vLLM.
-2. **Video quality metrics** — VBench-style aesthetic, imaging, consistency and
-   motion-smoothness scores.
+**PhyPO** (GRPO, physics-reward) fine-tuned versions with a **pairwise VLM
+judge**: a vision-language model watches the baseline and PhyPO video for the
+same prompt and picks the one with more natural physics and better prompt
+alignment. Supported judges: ChatGPT / GPT-5.x and Gemini through their APIs,
+plus local Qwen2.5-VL, Qwen3-VL, InternVL3.5 and Molmo through vLLM.
 
 ## Table of Contents
 
@@ -27,7 +23,6 @@ Evaluation code for comparing **baseline** text-to-video models against their
   - [All judges in one go](#all-judges-in-one-go)
   - [Outputs](#outputs)
   - [Options](#options)
-- [Run Video Quality Evaluation](#run-video-quality-evaluation)
 - [Troubleshooting](#troubleshooting)
 - [Acknowledgments](#acknowledgments)
 
@@ -250,23 +245,6 @@ python evaluate_vqa.py \
 | `--reasoning_effort` | `low` | Reasoning effort for GPT-5 / o-series |
 | `--tensor_parallel_size` | `1` | GPUs for local vLLM judges |
 | `--gpu_memory_utilization` | `0.65` | Fraction of each GPU vLLM may use |
-
-## Run Video Quality Evaluation
-
-VBench-style quality metrics, run on 8 GPUs:
-
-```bash
-python -m torch.distributed.run --standalone --nproc_per_node 8 evaluate.py \
-  --mode custom_input \
-  --prompt_file ${path_to_hf_dataset}/cosmos_predict2_bench_full_info.json \
-  --custom_image_folder ${path_to_hf_dataset}/condition_image \
-  --dimension aesthetic_quality background_consistency imaging_quality motion_smoothness overall_consistency subject_consistency i2v_background i2v_subject \
-  --videos_path ${path_to_your_videos} \
-  --output_path ./evaluation_results/
-```
-
-`run_quality_all.sh` runs this for every model folder. Results for the six
-models are in `evaluation_results/`.
 
 ## Troubleshooting
 
