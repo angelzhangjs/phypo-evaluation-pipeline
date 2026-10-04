@@ -34,8 +34,8 @@ Evaluation code for comparing **baseline** text-to-video models against their
 ## Setup
 
 ```bash
-git clone https://github.com/<github-user>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/angelzhangjs/phypo-evaluation-pipeline.git
+cd phypo-evaluation-pipeline
 
 conda create -n pbench python=3.10 -y
 conda activate pbench
